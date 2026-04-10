@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>简易计算器</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            background: linear-gradient(145deg, #e0e5ec 0%, #f0f4fa 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .calculator {
+            width: 320px;
+            background: #2d3e4b;
+            border-radius: 36px;
+            box-shadow: 20px 20px 35px rgba(0, 0, 0, 0.2), -8px -8px 15px rgba(255, 255, 255, 0.4);
+            padding: 20px 15px 25px 15px;
+        }
+
+        .display {
+            background: #1e2a32;
+            border-radius: 28px;
+            padding: 20px 18px;
+            margin-bottom: 25px;
+            box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.3), inset 0 -1px 0 rgba(255, 255, 255, 0.1);
+            text-align: right;
+            word-wrap: break-word;
+            word-break: break-all;
+        }
+
+        .display .previous {
+            font-size: 18px;
+            color: #9aaebf;
+            min-height: 28px;
+            letter-spacing: 1px;
+        }
+
+        .display .current {
+            font-size: 44px;
+            font-weight: 500;
+            color: #f5f9ff;
+            line-height: 1.2;
+            margin-top: 8px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+
+        .buttons {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+
+        button {
+            background: #eef3fc;
+            border: none;
+            font-size: 24px;
+            font-weight: 600;
+            padding: 16px 0;
+            border-radius: 40px;
+            cursor: pointer;
+            color: #1e2f3c;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+            transition: all 0.08s linear;
+            font-family: inherit;
+        }
+
+        button:active {
+            transform: scale(0.96);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .operator {
+            background: #ffa559;
+            color: white;
+            font-size: 28px;
+            text-shadow: 0 1px 0 rgba(0,0,0,0.1);
+        }
+
+        .equal {
+            background: #48b5b0;
+            color: white;
+            font-size: 28px;
+        }
+
+        .clear {
+            background: #cf6679;
+            color: white;
+            font-size: 22px;
+        }
+
+        .backspace {
+            background: #6c8b9b;
+            color: white;
+            font-size: 22px;
+        }
+
+        .zero {
+            grid-column: span 2;
+        }
+    </style>
+</head>
+<body>
+<div class="calculator">
+    <div class="display">
+        <div class="previous" id="previousOperand"></div>
+        <div class="current" id="currentOperand">0</div>
+    </div>
+    <div class="buttons">
+        <button class="clear" id="clear">C</button>
+        <button class="backspace" id="backspace">⌫</button>
+        <button class="operator" id="divide">÷</button>
+        <button class="operator" id="multiply">×</button>
+
+        <button id="7">7</button>
+        <button id="8">8</button>
+        <button id="9">9</button>
+        <button class="operator" id="subtract">−</button>
+
+        <button id="4">4</button>
+        <button id="5">5</button>
+        <button id="6">6</button>
+        <button class="operator" id="add">+</button>
+
+        <button id="1">1</button>
+        <button id="2">2</button>
+        <button id="3">3</button>
+        <button class="equal" id="equals">=</button>
+
+        <button class="zero" id="0">0</button>
+        <button id="dot">.</button>
+    </div>
+</div>
+
+<script>
+    // ---------- DOM 元素 ----------
+    const previousDisplay = document.getElementById('previousOperand');
+    const currentDisplay = document.getElementById('currentOperand');
+
+    // ---------- 计算器状态 ----------
+    let currentOperand = '0';      // 当前显示的数字或表达式片段
+    let previousOperand = '';      // 上一个运算数 + 运算符 (用于展示)
+    let operation = null;           // 当前要执行的运算符 (+ - × ÷)
+    let shouldResetScreen = false;  // 按下运算符后是否需要重置输入
+
+    // ---------- 辅助函数 ----------
+    function updateDisplay() {
+        // 格式化显示数字，避免小数点后过长
+        let displayNumber = currentOperand;
+        if (displayNumber.includes('.') && displayNumber.split('.')[1] && displayNumber.split('.')[1].length > 8) {
+            displayNumber = parseFloat(displayNumber).toFixed(8);
+            // 去掉末尾多余0
+            displayNumber = displayNumber.replace(/\.?0+$/, '');
+        }
+        currentDisplay.innerText = displayNumber === '' ? '0' : displayNumber;
+        previousDisplay.innerText = previousOperand;
+    }
+
+    // 清除所有
+    function clearAll() {
+        currentOperand = '0';
+        previousOperand = '';
+        operation = null;
+        shouldResetScreen = false;
+        updateDisplay();
+    }
+
+    // 删除最后一个字符
+    function backspace() {
+        if (shouldResetScreen) return;
+        if (currentOperand.length === 1 || (currentOperand === '0')) {
+            currentOperand = '0';
+        } else {
+            currentOperand = currentOperand.slice(0, -1);
+            if (currentOperand === '') currentOperand = '0';
+        }
+        updateDisplay();
+    }
+
+    // 追加数字或小数点
+    function appendNumber(number) {
+        if (shouldResetScreen) {
+            currentOperand = '';
+            shouldResetScreen = false;
+        }
+        // 避免多个小数点
+        if (number === '.' && currentOperand.includes('.')) return;
+        // 避免以0开头并且后面再跟数字（除非是0.x）
+        if (currentOperand === '0' && number !== '.') {
+            currentOperand = number;
+        } else {
+            currentOperand += number;
+        }
+        updateDisplay();
+    }
+
+    // 执行实际运算 (根据 operation 计算 a 和 b)
+    function compute(a, b, op) {
+        const num1 = parseFloat(a);
+        const num2 = parseFloat(b);
+        if (isNaN(num1) || isNaN(num2)) return '0';
+
+        let result;
+        switch (op) {
+            case '+':
+                result = num1 + num2;
+                break;
+            case '-':
+                result = num1 - num2;
+                break;
+            case '×':
+                result = num1 * num2;
+                break;
+            case '÷':
+                if (num2 === 0) return '错误';
+                result = num1 / num2;
+                break;
+            default:
+                return b;
+        }
+        // 处理浮点数精度，保留最多8位小数
+        return Math.round(result * 100000000) / 100000000;
+    }
+
+    // 选择运算符
+    function chooseOperator(op) {
+        if (currentOperand === '' && previousOperand === '') return;
+
+        // 如果已经有previousOperand且未按等于，则需要先结算当前运算
+        if (operation !== null && !shouldResetScreen) {
+            // 进行之前的运算
+            const result = compute(previousOperand, currentOperand, operation);
+            if (result === '错误') {
+                clearAll();
+                currentDisplay.innerText = '除数不能为0';
+                return;
+            }
+            currentOperand = result.toString();
+            previousOperand = '';
+            operation = null;
+        }
+
+        // 保存当前数字和运算符
+        if (currentOperand !== '') {
+            operation = op;
+            previousOperand = currentOperand + ' ' + getSymbol(op);
+            shouldResetScreen = true;
+            updateDisplay();
+        }
+    }
+
+    // 将运算符转为显示符号
+    function getSymbol(op) {
+        switch (op) {
+            case '+': return '+';
+            case '-': return '−';
+            case '×': return '×';
+            case '÷': return '÷';
+            default: return '';
+        }
+    }
+
+    // 等号逻辑
+    function evaluate() {
+        if (operation === null || shouldResetScreen) return;
+        if (previousOperand === '' || currentOperand === '') return;
+
+        const result = compute(previousOperand.split(' ')[0], currentOperand, operation);
+        if (result === '错误') {
+            clearAll();
+            currentDisplay.innerText = '除数不能为0';
+            return;
+        }
+
+        // 显示计算结果
+        currentOperand = result.toString();
+        previousOperand = '';
+        operation = null;
+        shouldResetScreen = true;   // 按完等于后，再输数字会覆盖当前结果
+        updateDisplay();
+    }
+
+    // ---------- 事件绑定 ----------
+    document.getElementById('clear').addEventListener('click', clearAll);
+    document.getElementById('backspace').addEventListener('click', backspace);
+
+    document.getElementById('0').addEventListener('click', () => appendNumber('0'));
+    document.getElementById('1').addEventListener('click', () => appendNumber('1'));
+    document.getElementById('2').addEventListener('click', () => appendNumber('2'));
+    document.getElementById('3').addEventListener('click', () => appendNumber('3'));
+    document.getElementById('4').addEventListener('click', () => appendNumber('4'));
+    document.getElementById('5').addEventListener('click', () => appendNumber('5'));
+    document.getElementById('6').addEventListener('click', () => appendNumber('6'));
+    document.getElementById('7').addEventListener('click', () => appendNumber('7'));
+    document.getElementById('8').addEventListener('click', () => appendNumber('8'));
+    document.getElementById('9').addEventListener('click', () => appendNumber('9'));
+    document.getElementById('dot').addEventListener('click', () => appendNumber('.'));
+
+    document.getElementById('add').addEventListener('click', () => chooseOperator('+'));
+    document.getElementById('subtract').addEventListener('click', () => chooseOperator('-'));
+    document.getElementById('multiply').addEventListener('click', () => chooseOperator('×'));
+    document.getElementById('divide').addEventListener('click', () => chooseOperator('÷'));
+    document.getElementById('equals').addEventListener('click', evaluate);
+
+    // 键盘支持 (可选，提高体验)
+    window.addEventListener('keydown', (e) => {
+        const key = e.key;
+        if (/[0-9]/.test(key)) {
+            appendNumber(key);
+            e.preventDefault();
+        } else if (key === '.') {
+            appendNumber('.');
+            e.preventDefault();
+        } else if (key === '+' || key === '-') {
+            chooseOperator(key);
+            e.preventDefault();
+        } else if (key === '*') {
+            chooseOperator('×');
+            e.preventDefault();
+        } else if (key === '/') {
+            e.preventDefault();
+            chooseOperator('÷');
+        } else if (key === 'Enter' || key === '=') {
+            evaluate();
+            e.preventDefault();
+        } else if (key === 'Backspace') {
+            backspace();
+            e.preventDefault();
+        } else if (key === 'Escape' || key === 'c' || key === 'C') {
+            clearAll();
+            e.preventDefault();
+        }
+    });
+</script>
+</body>
+</html>
